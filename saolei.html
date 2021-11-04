@@ -1,0 +1,440 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+    <style>
+        table {
+            margin: 40px auto 0px;
+            table-layout: fixed;
+            background-color: #828282;
+        }
+        aside{
+            position: absolute;
+            top: 100px;
+            left: 60px;
+        }
+        i{
+            font-style: normal;
+            color: red;
+        }
+        b{
+            font-weight: 500;
+            color: red;
+        }
+        button {
+            width: 60px;
+            margin: 20px 20px;
+        }
+        span{
+            margin: 0px 20px ;
+        }
+        table td {
+            width: 26px;
+            height: 26px;
+            background-color: #C0C0C0;
+            color: transparent;
+            cursor: pointer;
+            background-position: center center;
+            background-repeat: no-repeat;
+            box-shadow: 4px 0px 1px #FFFFFF inset, 0px 4px 1px #FFFFFF inset, 0px -4px 1px #828282 inset, -4px 0px 1px #828282 inset;
+        }
+
+        .oncl {
+            background-color: #BEBEBE;
+            box-shadow: 4px 0px 1px #C4C4C4 inset, 0px 4px 1px #C4C4C4 inset;
+            color: #000;
+            text-align: center;
+            line-height: 26px;
+        }
+
+        div {
+            background-color: rgba(00, 00, 00, 0.1);
+            width: 0;
+            position: absolute;
+            font-weight: 600;
+            margin: auto;
+            left: 0;
+            right: 0;  
+            top: 134px;
+        }
+
+        .tanchu {
+            width: 140px;
+            height: 50px;
+            text-align: center;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            background-color: rgba(240, 238, 238, 0.7);
+            border: 1px solid #ccc;
+            border-radius: 6px;
+            color: black;
+            position: absolute;
+            left: 0;
+            right: 0;
+            top: 0;
+            bottom: 0;
+            margin: auto;
+        }
+    </style>
+</head>
+
+<body>
+    <center>
+        <button>简单</button>
+        <button>普通</button>
+        <button>困难</button>
+        <button>自定义</button>
+        <br>
+        <span>游戏时间：<b></b></span><span>剩余&nbsp;<i></i>&nbsp;个雷</span>
+    </center>
+    <table>
+        <tbody></tbody>
+    </table>
+    <div>
+        <span></span>
+    </div>
+    <aside>
+        <h3>排行榜</h3>
+        <p></p>
+        <p></p>
+        <p></p>
+        <p></p>
+        <p></p>
+    </aside>
+</body>
+
+</html>
+<script>
+    var table = document.querySelector("table")
+    var tbody = document.querySelector("tbody")
+    var div = document.querySelector("div")
+    var btn = document.querySelectorAll("button")
+    var inum = document.querySelector("i")
+    var times = document.querySelector("b")
+    var timer
+    var timenum
+    var lei
+    var tr
+    let successobj = {"easy":[],"mid":[],"dif":[]}
+    table.oncontextmenu = function (e) {
+        e.preventDefault();// 去掉自带的右击事件(阻止默认行为三种写法)
+        // e.returnValue = false  兼容写法
+        // return false  
+    }
+    function newgame(hang, lie, num) {  //创建棋盘并生成雷
+        div.style.display = "none"  //隐藏遮罩层
+        // 动态生成表格
+        for (var i = 0; i < hang; i++) {
+            var tr = document.createElement("tr")
+            for (var j = 0; j < lie; j++) {
+                var td = document.createElement("td")
+                tr.appendChild(td)
+            }
+            tbody.appendChild(tr)
+        }
+        var tr = document.querySelectorAll("tr")
+        var leiarr =[]
+        for (var m = 0; m < num; m++) {
+            var a = Math.floor(Math.random() * tr.length)  //[0,tr.length)范围内的随机整数
+            var b = Math.floor(Math.random() * tr[0].children.length)
+            if(leiarr.indexOf(a + "" + b) == -1){  //随机数去重，确保生成固定数量的雷
+                leiarr.push(a + "" + b)
+                tr[a].children[b].className = "lei" //给雷做标记，添加样式
+            }else{
+                m--
+            }   //leiarr.indexOf([a,b])输出都是-1,不能用indexof去判断二维数组内是否存在某一个数组，所以转换为字符串进行判断
+            // console.log([1] == [1])
+        }
+    }
+    function game() {  
+        for (let j = 0; j < 5; j++) {
+            successobj["easy"][j] = Number(getscore(10+j))  //每个难度的排行榜数组初始化，将cookie数值存入数组中
+            successobj["mid"][j] = Number(getscore(20+j))
+            successobj["dif"][j] = Number(getscore(30+j))
+        }
+        lei = document.querySelectorAll(".lei")
+        tr = document.querySelectorAll("tr")  //重新获取tr和雷
+        inum.innerHTML = lei.length  //雷数、时间数初始化
+        timenum = 0 
+        times.innerHTML = timenum
+        time()
+        // 页面可见性改变时，停止计时
+        document.onvisibilitychange = function(){
+            if(document.hidden){  //document.hidden为true时就代表页面隐藏
+                clearInterval(timer)
+            }else{
+                time()
+            }
+        }
+        for (var i = 0; i < tr.length; i++) {
+            for (var j = 0; j < tr[i].children.length; j++) {  //遍历所有小方块
+                var flag = 0
+                for (var p = i - 1; p <= i + 1; p++) {    // 计算附近有多少雷
+                    for (var q = j - 1; q <= j + 1; q++) {
+                        if (tr[p] == undefined || tr[p].children[q] == undefined) {  // 跳过不存在的小方块
+                            continue
+                        }else if (tr[p].children[q].className == "lei") {
+                            flag++
+                        }
+                    }
+                }
+                tr[i].children[j].setAttribute("flag", flag)
+                tr[i].children[j].setAttribute("indexx", j)
+                tr[i].children[j].setAttribute("indexy", i) //在点击事件中方便获取小方块的坐标
+                tr[i].children[j].setAttribute("biao", false) //初始化每个小方块的状态：未被标记，方便进行右键标记
+                // 右键标记功能
+                tr[i].children[j].addEventListener("contextmenu", function () {
+                    if (this.className != "oncl") {
+                        if (this.getAttribute("biao") == "false") {
+                            this.style.backgroundImage = "url(img/qizi.png)"
+                            this.onclick = null  // 被标记的小方块解绑点击事件
+                            this.setAttribute("biao", true)
+                        } else {
+                            this.style.backgroundImage = ""
+                            this.onclick = dian // 取消标记的小方块重新绑定点击事件
+                            this.setAttribute("biao", false)
+                        }
+                    }
+                    var biaos = document.querySelectorAll("td[biao = 'true']")  //每次右键重新获取所有被标记的小方块
+                    inum.innerHTML = lei.length - biaos.length  //刷新剩余雷数
+                })
+                tr[i].children[j].onclick = dian  //绑定点击事件
+            }
+        }
+    }
+    // 单击事件，独立出来方便解绑、重新绑定
+    function dian(e) {  
+        var obje = e.target //获取事件源
+        var biaonum = 0
+        var y = Number(obje.getAttribute("indexy"))//行
+        var x = Number(obje.getAttribute("indexx"))//列
+        for (var p = y - 1; p <= y + 1; p++) {   // 计算附近有多少被标记的，实现快捷左键点击功能
+            for (var q = x - 1; q <= x + 1; q++) {
+                if (tr[p] == undefined || tr[p].children[q] == undefined) {
+                    continue
+                }
+                if (tr[p].children[q].getAttribute("biao") == "true") {
+                    biaonum++  //最终的biaonum就表示附近的标记个数
+                }
+            }
+        }
+        if (obje.getAttribute("flag") == 0) {   //自动点开的功能
+            autooncl(obje, 0)
+        } else if (biaonum == obje.getAttribute("flag") && obje.className =="oncl") { //已经点击过了的方块才会触发快捷左键点击功能
+            autooncl(obje, biaonum)
+        }
+        if (obje.className != "lei") {  //点开不是雷的方块
+            obje.className = "oncl"
+            shuzi(obje)
+        }else{        // 点到雷
+            fail()
+            obje.style.backgroundColor = "red"
+        }
+        var oncl = document.querySelectorAll(".oncl")  //每次左键单击，重新获取被点开的所有方块
+        // 游戏胜利的条件
+        if (oncl.length + lei.length == tr.length * tr[0].children.length) {
+            success()
+        }
+    }
+    // 显示数字图片
+    function shuzi(obj) {
+        if (obj.className != "lei" && obj.getAttribute("flag") != "0") {  //数字0时不显示图片
+            obj.style.backgroundImage = "url(img/saolei"+obj.getAttribute("flag")+".png)"
+        }
+    }
+    // 自动点开
+    function autooncl(obj, num) {
+        if (obj.getAttribute("flag") == num) {
+            var y = Number(obj.getAttribute("indexy"))//行
+            var x = Number(obj.getAttribute("indexx"))//列
+            // 不转换为数字类型的话，x+1/y+1就会变成字符串拼接，无法正常比较
+            for (var m = y - 1; m <= y + 1; m++) {
+                for (var n = x - 1; n <= x + 1; n++) {
+                    if (tr[m] == undefined || tr[m].children[n] == undefined) {
+                        continue
+                    }else if (tr[m].children[n].className != "oncl") {  //跳过已被点开的方块，避免死递归
+                        if (tr[m].children[n].getAttribute("biao") == "false") {  //跳过被标记的方块
+                            if (tr[m].children[n].className == "lei") {
+                                fail()         //标记错误导致自动点开点到雷，也会游戏失败
+                                tr[m].children[n].style.backgroundColor = "red"
+                            }else{   //不是雷则点开该方块
+                                shuzi(tr[m].children[n]) 
+                                tr[m].children[n].className = "oncl"
+                                if (tr[m].children[n].getAttribute("flag") == 0) { 
+                                    autooncl(tr[m].children[n], 0)
+                                }//一点点开一大片的功能
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    //cookie设置函数
+    function setcookie(key,name,exp){  //exp为希望cookie多少天后过期
+        let time = new Date()
+        time = new Date(time.getTime() - 8*60*60*1000 + exp*24*60*60*1000) //服务器时间有八小时时间差
+        document.cookie = `${key} = ${name};expires = ${time};`
+    }
+    //获取对应排名的分数
+    function getscore(num){
+        let timearr = document.cookie.split(";")
+        for (let i = 0; i < timearr.length; i++) {
+            if(timearr[i].split("=")[0] == num){
+                return timearr[i].split("=")[1]
+            }
+        }
+    }
+    function minmax(arr){    //sort方法判断有问题
+        for(var i = arr.length;i>=2;i--){
+            for(var j = 0;j<i-1;j++){
+                if(arr[j]>arr[j+1]){
+                    var max = arr[j]
+                    arr[j] = arr[j+1]
+                    arr[j+1] = max
+                }
+            }
+        }
+        return arr
+    }
+    // 游戏胜负的函数包装
+    function success() {
+        // 游戏胜利/结束的弹出框样式设置,由于弹框遮罩层大小不定，所以在js内设置
+        div.style.width = tbody.parentElement.offsetWidth + "px"
+        div.style.height = tbody.parentElement.offsetHeight + "px"
+        clearInterval(timer)
+        document.onvisibilitychange = null //避免游戏结束后页面可见性变化计时又重新开始的bug
+        div.style.display = "block"
+        div.children[0].className = "tanchu"
+        div.children[0].innerText = "游戏胜利\n" + "您的成绩为" + timenum +"秒"
+        if(tbody.offsetWidth < 268){   //数组排序，前5个存入cookie
+            successobj["easy"].push(timenum)
+            successobj["easy"].sort()    //sort可以把NaN排在后面
+            successobj["easy"] = minmax(successobj["easy"])  //即使位数不同也可以正常比较
+            for (let i = 0; i < 5; i++) {
+                setcookie('1'+i,successobj["easy"][i],365)
+            }
+        }else if(tbody.offsetWidth == 472){
+            successobj["mid"].push(timenum)
+            successobj["mid"].sort()
+            successobj["mid"] = minmax(successobj["mid"])
+            for (let i = 0; i < 5; i++) {
+                setcookie('2'+i,successobj["mid"][i],365)
+            }
+        }else if(tbody.offsetWidth >600){
+            successobj["dif"].push(timenum)
+            successobj["dif"].sort()
+            successobj["dif"] = minmax(successobj["dif"])
+            for (let i = 0; i < 5; i++) {
+                setcookie('3'+i,successobj["dif"][i],365)
+            }
+        }
+    }
+    function fail() {
+        // 游戏胜利/结束的弹出框样式设置,由于弹框遮罩层大小不定，所以在js内设置
+        div.style.width = tbody.parentElement.offsetWidth + "px"
+        div.style.height = tbody.parentElement.offsetHeight + "px"
+        div.style.display = "block"
+        div.children[0].className = "tanchu"
+        div.children[0].innerText = "游戏结束"
+        clearInterval(timer)
+        document.onvisibilitychange = null
+        var lei = document.querySelectorAll(".lei")
+        for (var z = 0; z < lei.length; z++) {  //翻开所有雷
+            lei[z].style.backgroundColor = "rgb(190,190,190)"
+            lei[z].style.backgroundImage = "url(img/saolei.png)"
+            lei[z].style.boxShadow = "none"
+        }
+    }
+    function time(){
+        clearInterval(timer)
+        timer = setInterval(function(){
+            timenum ++
+            times.innerHTML = timenum
+        },1000)
+    }
+    function asid(num){
+        let ps = document.querySelectorAll("aside p")
+        for (let i = 0; i < ps.length; i++) {
+            if(!getscore(num+i)||isNaN(getscore(num+i))){
+                for (let j = i; j < ps.length; j++) { //没有成绩的清空文字
+                    ps[j].innerText = ""
+                }
+                break
+            }else{
+                ps[i].innerText ="第" + (i+1) + "名：" + getscore(num+i) +"秒"
+            }
+        }
+    }
+    newgame(9, 9, 10) //未点击按钮时默认显示简单难度
+    game()
+    asid(10)
+    btn[0].onclick = function () {
+        tbody.innerHTML = ""
+        newgame(9, 9, 10)
+        game()
+        asid(10)
+    }
+    btn[1].onclick = function () {
+        tbody.innerHTML = ""
+        newgame(16, 16, 40)
+        game()
+        asid(20)
+    }
+    btn[2].onclick = function () {
+        tbody.innerHTML = ""
+        newgame(16, 30, 99)
+        game()
+        asid(30)
+    }
+    btn[3].onclick = function () {
+        tbody.innerHTML = ""
+        var a = prompt("请输入行数")
+        var b = prompt("请输入列数")
+        var c = prompt("请输入雷数")
+        newgame(a, b, c)
+        game()
+    }
+</script>
+<script>
+    /*
+    功能思路：
+        -可调整难度 => 动态生成表格和雷的个数
+
+        -随机生成雷 => 每次循环创建两个随机数，分别作为行数和列数，tr[a].children[b]即可获得随机到的方块，添加样式，成为地雷(最好做个可识别的标记，方便下一步获得个数，例如classname)
+
+        -计算附近3*3方块内的雷的个数 => 四层for循环，第一、二层遍历整个棋盘的方块，第三、四层遍历某个方块附近的3*3方块（从a-1到a+1,从b-1到b+1）
+            如果是计算棋盘边角的方块的3*3方块内的雷的个数，会因为tr[a-1].children[b-1]（或其它方块）不存在而报错，可以使用循环中的关键字：continue跳过不存在的小方块,并将结果储存起来（方便后面显示数字图片）
+
+        -右键单击
+           -去掉页面自带的右键单击事件
+           -点击未被点击的方块，标记该方块 => 添加样式、标记（方便自动点开功能计数），解绑左键单击事件
+           -点击已被标记的方块，取消标记 => 取消标记，样式还原为未点击块，重新绑定左键单击事件
+
+        -左键单击
+           -点开未点击过的普通方块 => 添加样式、标记（方便判定胜利时计数）
+               -该方块的提示数字以图片形式显示（非必需功能，可以直接用innerHTML） => 获取方块附近雷的个数，将对应的图片作为方块的背景图片（类似图片时钟的案例）
+               -如果这个方块上的数字是0，自动点开附近3*3方块，且如果周围方块里也有数字为0的方块，继续自动点开（就是一下子点开一大片方块的效果） => 递归
+           -点开已点击过的普通方块
+                如果这个方块上的数字与附近的标记数相等，会自动点开除标记格以外的附近3*3方块 => if判断，符合条件就对周围方块调用单击事件函数里的代码块,如果玩家标记错误导致自动点开点到雷，也判定玩家输了
+           -点开雷  => 触发失败的函数
+           -点击标记方块，点不开  => 被标记的方块解绑左键单击事件
+
+        -游戏胜利 
+           - 胜利条件为已点开的方块个数与雷的个数之和等于小方块的总个数 => 每次单击时进行判断
+           - 弹出弹框与遮罩层（遮罩层覆盖整个棋盘，主要作用是避免棋盘再发生点击事件） => 提前在css中写好样式，默认隐藏，游戏胜利时改为显现
+
+        -游戏失败 
+           - 点击/自动点击到雷 => 获取所有雷的dom元素，绑定单击事件，被点击时触发失败函数
+           - 翻开所有雷，玩家踩到的雷显示为红色 =>遍历所有雷，设置为点开的样式，被点击的雷的背景色设置为红色
+
+        -游戏时长计算 => 游戏开始即开始计时器，游戏胜利或失败时清除定时器
+           -页面最小化或切换页面时计时暂停（非必需功能） => 利用visibilitychange事件和document.hidden属性
+
+        -计算还剩多少雷 => 雷的个数减去标记的个数，绑定在右键单击事件上（不需要考虑玩家标记是否正确）
+    */
+</script>
